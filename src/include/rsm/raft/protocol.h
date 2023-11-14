@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rsm/raft/log.h"
+#include "rpc/msgpack.hpp"
 
 namespace chfs {
 
@@ -18,10 +19,18 @@ const std::string RAFT_RPC_INSTALL_SNAPSHOT = "install snapshot";
 
 struct RequestVoteArgs {
     /* Lab3: Your code here */
+    
+    MSGPACK_DEFINE(
+    
+    )
 };
 
 struct RequestVoteReply {
     /* Lab3: Your code here */
+
+    MSGPACK_DEFINE(
+    
+    )
 };
 
 template <typename Command>
@@ -31,6 +40,10 @@ struct AppendEntriesArgs {
 
 struct RpcAppendEntriesArgs {
     /* Lab3: Your code here */
+
+    MSGPACK_DEFINE(
+    
+    )
 };
 
 template <typename Command>
@@ -49,14 +62,26 @@ AppendEntriesArgs<Command> transform_rpc_append_entries_args(const RpcAppendEntr
 
 struct AppendEntriesReply {
     /* Lab3: Your code here */
+
+    MSGPACK_DEFINE(
+    
+    )
 };
 
 struct InstallSnapshotArgs {
     /* Lab3: Your code here */
+
+    MSGPACK_DEFINE(
+    
+    )
 };
 
 struct InstallSnapshotReply {
     /* Lab3: Your code here */
+
+    MSGPACK_DEFINE(
+    
+    )
 };
 
 } /* namespace chfs */

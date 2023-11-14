@@ -20,8 +20,6 @@
 #include "librpc/client.h"
 #include "block/manager.h"
 
-namespace fs = std::filesystem;
-
 namespace chfs {
 
 enum class RaftRole {
@@ -39,16 +37,16 @@ struct RaftNodeConfig {
 template <typename StateMachine, typename Command>
 class RaftNode {
 
-// #define RAFT_LOG(fmt, args...)                                                                                   \
-//     do {                                                                                                         \
-//         auto now =                                                                                               \
-//             std::chrono::duration_cast<std::chrono::milliseconds>(                                               \
-//                 std::chrono::system_clock::now().time_since_epoch())                                             \
-//                 .count();                                                                                        \
-//         char buf[512];                                                                                      \
-//         sprintf(buf,"[%ld][%s:%d][node %d term %d role %d] " fmt "\n", now, __FILE__, __LINE__, my_id, current_term, role, ##args); \
-//         thread_pool->enqueue([=]() { std::cerr << buf;} );                                         \
-//     } while (0);
+#define RAFT_LOG(fmt, args...)                                                                                   \
+    do {                                                                                                         \
+        auto now =                                                                                               \
+            std::chrono::duration_cast<std::chrono::milliseconds>(                                               \
+                std::chrono::system_clock::now().time_since_epoch())                                             \
+                .count();                                                                                        \
+        char buf[512];                                                                                      \
+        sprintf(buf,"[%ld][%s:%d][node %d term %d role %d] " fmt "\n", now, __FILE__, __LINE__, my_id, current_term, role, ##args); \
+        thread_pool->enqueue([=]() { std::cerr << buf;} );                                         \
+    } while (0);
 
 public:
     RaftNode (int node_id, std::vector<RaftNodeConfig> node_configs);
@@ -175,6 +173,9 @@ RaftNode<StateMachine, Command>::RaftNode(int node_id, std::vector<RaftNodeConfi
     rpc_server->bind(RAFT_RPC_INSTALL_SNAPSHOT, [this](InstallSnapshotArgs arg) { return this->install_snapshot(arg); });
 
    /* Lab3: Your code here */ 
+
+
+    rpc_server->run(true, configs.size()); 
 }
 
 template <typename StateMachine, typename Command>

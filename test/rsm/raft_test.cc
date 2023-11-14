@@ -518,6 +518,9 @@ TEST_F(RaftTestPart3, BasicPersist)
     EnableNode(i);
   }
 
+  mssleep(1000);
+  ASSERT_EQ(GetCommittedValue(1), 11);
+
   ASSERT_GE(AppendNewCommand(12, num_nodes), 0);
 
   int leader1 = CheckOneLeader();

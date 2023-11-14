@@ -16,6 +16,10 @@ class RaftLog {
 public:
     RaftLog(std::shared_ptr<BlockManager> bm);
     ~RaftLog();
+
+private:
+    std::shared_ptr<BlockManager> bm_;
+    std::mutex mtx;
 };
 
 template <typename Command>

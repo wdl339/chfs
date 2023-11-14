@@ -156,6 +156,24 @@ RaftNode<StateMachine, Command>::RaftNode(int node_id, std::vector<RaftNodeConfi
     current_term(0),
     leader_id(-1)
 {
+    auto my_config = node_configs[my_id];
+
+    /* launch RPC server */
+    rpc_server = std::make_unique<RpcServer>(my_config.ip_address, my_config.port);
+
+    /* Register the RPCs. */
+    rpc_server->bind(RAFT_RPC_START_NODE, [this]() { return this->start(); });
+    rpc_server->bind(RAFT_RPC_STOP_NODE, [this]() { return this->stop(); });
+    rpc_server->bind(RAFT_RPC_CHECK_LEADER, [this]() { return this->is_leader(); });
+    rpc_server->bind(RAFT_RPC_IS_STOPPED, [this]() { return this->is_stopped(); });
+    rpc_server->bind(RAFT_RPC_NEW_COMMEND, [this](std::vector<u8> data, int cmd_size) { return this->new_command(data, cmd_size); });
+    rpc_server->bind(RAFT_RPC_SAVE_SNAPSHOT, [this]() { return this->save_snapshot(); });
+    rpc_server->bind(RAFT_RPC_GET_SNAPSHOT, [this]() { return this->get_snapshot(); });
+
+    rpc_server->bind(RAFT_RPC_REQUEST_VOTE, [this](RequestVoteArgs arg) { return this->request_vote(arg); });
+    rpc_server->bind(RAFT_RPC_APPEND_ENTRY, [this](RpcAppendEntriesArgs arg) { return this->append_entries(arg); });
+    rpc_server->bind(RAFT_RPC_INSTALL_SNAPSHOT, [this](InstallSnapshotArgs arg) { return this->install_snapshot(arg); });
+
    /* Lab3: Your code here */ 
 }
 

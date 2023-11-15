@@ -1,5 +1,9 @@
 # Lab 3
 
+**Hand out: Nov 19, 2023** 
+
+**Deadline: Dec 3 23:59, No Extension**
+
 ## Introduction
 
 **Raft** is a consensus algorithm for replicated log.  Raft decomposes the consensus problem into relatively independent subproblems, which are much easier to understand. 
@@ -211,10 +215,13 @@ You'd better follow the steps:
 2. Complete the method `RaftNode::request_vote` in `node.h` following Figure 2 in the Raft paper (you may also need to define some variables for the `RaftNode` class, such as commit_idx).
 3. Complete the method `RaftNode::handle_request_vote_reply`, which should handle the RPC reply.
 4. Complete the method `RaftNode::run_background_election`, which should turn to candidate and start an election after a leader timeout by sending request_vote RPCs asynchronously. 
-5. Now, the raft nodes should be able to elect a leader automatically. But to keep its leadership, the leader should send heartbeat (i.e. an empty AppendEntries RPC) to the followers periodically. You can implement the heartbeat by implementing the AppendEntries RPC (e.g. complete `append_entries_args`, `append_entries_reply`, `RaftNode::append_entries`, `RaftNode::handle_append_entries_reply`, `RaftNode::run_background_ping`,`RaftNode::start`).
+5. Now, the raft nodes should be able to elect a leader automatically. But to keep its leadership, the leader should send heartbeat (i.e. an empty AppendEntries RPC) to the followers periodically. You can implement the heartbeat by implementing the AppendEntries RPC (e.g. complete `AppendEntriesArgs`, `AppendEntriesReply` in `protocal.h` and `RaftNode::append_entries`, `RaftNode::handle_append_entries_reply`, `RaftNode::run_background_ping` in `node.h`).
+6. To pass the test, you need to implement three basic RPC interfaces provided by RaftNode (`RaftNode::start`, `RaftNode::is_leader`, `RaftNode::stop` in `node.h`).
 
 
-You should pass the two test cases in RaftTestPart1.
+You should pass the two test cases in RaftTestPart1:
+* `RaftTestPart1.LeaderElection`
+* `RaftTestPart1.ReElection`
 
 **Hints**:
 
@@ -239,12 +246,19 @@ In this part, you will implement the `log replication` protocol of the Raft cons
 
 Recommended steps:
 
-1. Complete `RaftNode::new_command` to append new command to the leader's log.
+1. Complete `RaftNode::new_command` in `node.h` to append new command to the leader's log.
 2. Complete the methods related to the AppendEntries RPC.
-3. Complete `RaftNode::run_background_commit` to send logs to the followers asynchronously.
-4. Complete `RaftNode::run_background_apply` to apply the committed logs to the state machine.
+3. Complete `RaftNode::run_background_commit` in `node.h` to send logs to the followers asynchronously.
+4. Complete `RaftNode::run_background_apply` in `node.h` to apply the committed logs to the state machine.
 
-You should pass the 7 test cases of RaftTestPart2. (10 points + 5 points * 6)
+You should pass the 7 test cases of RaftTestPart2:
+* `RaftTestPart2.BasicAgree`
+* `RaftTestPart2.FailAgreement`
+* `RaftTestPart2.FailNoAgreement`
+* `RaftTestPart2.ConcurrentStarts`
+* `RaftTestPart2.Rejoin`
+* `RaftTestPart2.Backup`
+* `RaftTestPart2.RpcCount`
 
 Hints:
 
@@ -267,7 +281,13 @@ Recommended steps:
 4. You should use the `RaftNode::log_storage` to persist the state, whenever they are changed.
 5. And you should use the storage to restore the state when a Raft node is created.
 
-You should pass the 6 test cases of RaftTestPart3. (5 points + 5 points + 5 points + 2 points + 2 points + 1 point)
+You should pass the 6 test cases of RaftTestPart3:
+* `RaftTestPart3.BasicPersist`
+* `RaftTestPart3.MorePersistence`
+* `RaftTestPart3.Persist3`
+* `RaftTestPart3.UnreliableAgree`
+* `RaftTestPart3.Figure8`
+* `RaftTestPart3.UnreliableFigure8`
 
 Hints:
 
@@ -280,7 +300,7 @@ Hints:
 
 In this part, you will implement the snapshot mechanism of the Raft algorithm. You can refer to Figure 13 in the Raft extended paper. 
 
-**Notice: you don't need to partition the snapshot. You can send the whole snapshot in a single RPC.**
+**Notice: You can send the whole snapshot in a single RPC.**
 
 Recommended steps:
 
@@ -289,7 +309,10 @@ Recommended steps:
 3. Modify all the codes related to the log you have implemented before. (E.g. number of logs)
 4. Restore the snapshot in the raft constructor.
 
-You should pass the 3 test cases of RaftTestPart4. (4 points + 3 points + 3 points)
+You should pass the 3 test cases of RaftTestPart4:
+* `RaftTestPart4.BasicSnapshot`
+* `RaftTestPart4.RestoreSnapshot`
+* `RaftTestPart4.OverrideSnapshot`
 
 Hints:
 

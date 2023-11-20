@@ -28,7 +28,7 @@ Each part relies on the implementation of the prior one. So you must implement t
 
 ## Overview of the code
 
-You will mainly modify and complete the codes in `src/include/rsm/raft/node.h`(part 1 - part 4), `src/include/rsm/raft/log.h` (part 1 - part 4), `src/include/rsm/raft/protocol.h`(part 3 - part 4).
+You will mainly modify and complete the codes in `src/include/rsm/raft/node.h`, `src/include/rsm/raft/log.h`, `src/include/rsm/raft/protocol.h`.
 
 There are 4 important C++ classes you need to pay attention to.
 
@@ -220,8 +220,8 @@ You'd better follow the steps:
 
 
 You should pass the two test cases in RaftTestPart1:
-* `RaftTestPart1.LeaderElection`
-* `RaftTestPart1.ReElection`
+* `RaftTestPart1.LeaderElection` (5)
+* `RaftTestPart1.ReElection` (10)
 
 **Hints**:
 
@@ -252,13 +252,13 @@ Recommended steps:
 4. Complete `RaftNode::run_background_apply` in `node.h` to apply the committed logs to the state machine.
 
 You should pass the 7 test cases of RaftTestPart2:
-* `RaftTestPart2.BasicAgree`
-* `RaftTestPart2.FailAgreement`
-* `RaftTestPart2.FailNoAgreement`
-* `RaftTestPart2.ConcurrentStarts`
-* `RaftTestPart2.Rejoin`
-* `RaftTestPart2.Backup`
-* `RaftTestPart2.RpcCount`
+* `RaftTestPart2.BasicAgree` (10)
+* `RaftTestPart2.FailAgreement` (5)
+* `RaftTestPart2.FailNoAgreement` (5)
+* `RaftTestPart2.ConcurrentStarts` (5)
+* `RaftTestPart2.Rejoin` (5)
+* `RaftTestPart2.Backup` (5)
+* `RaftTestPart2.RpcCount` (5)
 
 Hints:
 
@@ -282,12 +282,12 @@ Recommended steps:
 5. And you should use the storage to restore the state when a Raft node is created.
 
 You should pass the 6 test cases of RaftTestPart3:
-* `RaftTestPart3.BasicPersist`
-* `RaftTestPart3.MorePersistence`
-* `RaftTestPart3.Persist3`
-* `RaftTestPart3.UnreliableAgree`
-* `RaftTestPart3.Figure8`
-* `RaftTestPart3.UnreliableFigure8`
+* `RaftTestPart3.BasicPersist` (5)
+* `RaftTestPart3.MorePersistence` (10)
+* `RaftTestPart3.Persist3` (5)
+* `RaftTestPart3.UnreliableAgree` (5)
+* `RaftTestPart3.Figure8` (3)
+* `RaftTestPart3.UnreliableFigure8` (2)
 
 Hints:
 
@@ -310,9 +310,9 @@ Recommended steps:
 4. Restore the snapshot in the raft constructor.
 
 You should pass the 3 test cases of RaftTestPart4:
-* `RaftTestPart4.BasicSnapshot`
-* `RaftTestPart4.RestoreSnapshot`
-* `RaftTestPart4.OverrideSnapshot`
+* `RaftTestPart4.BasicSnapshot` (5)
+* `RaftTestPart4.RestoreSnapshot` (5)
+* `RaftTestPart4.OverrideSnapshot` (5)
 
 Hints:
 

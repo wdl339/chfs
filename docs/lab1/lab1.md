@@ -21,7 +21,7 @@ The filesystem layer provides some basic filesystem APIs, including file operati
 - Clone the source code from our GitLab:
 
 ```bash
-git clone https://ipads.se.sjtu.edu.cn:1312/lab/cse-2023-fall.git chfs -b lab1
+git clone https://ipads.se.sjtu.edu.cn:1312/lab/cse-2024-fall.git chfs -b lab1
 ```
 
 - Change the permissions of the directory. The following command is used to grant write (`w`) permission to other users (`o`) recursively (`-R`) for all files and directories within the directory `chfs`. This operation is necessary because we will write within this directory inside a docker container.
@@ -39,7 +39,10 @@ git submodule update
 
 ### Docker Container
 
-We use docker container for all of your CSE labs in this semester, and we will provide a container image including all the environments your need for these labs. If you are not familiar with docker container, [this tutorial](https://www.runoob.com/docker/docker-container-usage.html) may help you quickly grasp how to use docker container.
+We use docker container for all of your CSE labs in this semester, and we will provide a container image including all the environments your need for these labs. 
+This will simplify the configuration of the environments.
+
+If you are not familiar with docker container, [this tutorial](https://www.runoob.com/docker/docker-container-usage.html) may help you quickly grasp how to use docker container. If you haven't install docker before, please install docker on your own workspace. You can refer [this tutorial](https://docs.docker.com/desktop/install/windows-install/) to install docker.
 
 - To get the docker image, you have two choices:
     - Pull from remote repository:
@@ -75,6 +78,10 @@ stu@xxxxxxxx:~$
 
 - You can write the code outside the container, but you must compile your code and execute the test scripts inside this container.
 
+- You can type the `exit` command or press `Ctrl+D` inside the container to stop the container, then you will return host shell. Please don't forget to start container next time.
+
+- You can use vscode and install the `Dev Containers` extension to develop in the docker container conveniently.
+
 ### Implementation
 
 We break down this lab into three parts according to the three layers of the filesystem you will implement. For each part, you have to implement some functions. While We have written most of the codes, we have left some parts incomplete and marked them with an `UNIMPLEMENTED()`. What you have to do is to delete the `UNIMPLEMENTED()` tag and fill in your implementation.
@@ -95,7 +102,7 @@ make fs -j
 
 We have prepared two kinds of tests for Lab 1: the unit tests and the integration tests.
 
-Each unit test checks the correctness of a function you have implemented. After you have finished the implementation of a part, you have to check whether your implementaion can pass specific unit tests to ensure the correctness of your code.
+Each unit test checks the correctness of a function you have implemented. After you have finished the implementation of a part, you have to check whether your implementation can pass specific unit tests to ensure the correctness of your code.
 
 To run the unit tests, execute the following commands under `build` directory:
 
@@ -103,6 +110,9 @@ To run the unit tests, execute the following commands under `build` directory:
 make build-tests -j
 make test -j
 ```
+
+If you configured the environment correctly, you may find that you will pass the `BasicTest`. This is because we have implemented a basic bitmap for you.
+If you can't pass any test, please check your environment.
 
 For the integration tests, we will mount the filesystem you have implemented and execute some real filesystem operations such as `ls`, `echo`, etc to test the correctness of your implementation.
 
@@ -123,7 +133,7 @@ Then execute the following command under `scripts/lab1` directory:
 
 ## Demo
 
-Lab 1 implements a simple single-machine inode-based filesystem which can support some basic filesystem operations, such as the creation of a file/directory, the deletion of a file, read/write a file and list the contents of a directory. After finish lab1, you can try to use the filesystem implemented by yourself! Follow the steps:
+Lab 1 implements a simple single-machine inode-based filesystem which can support some basic filesystem operations, such as the creation of a file/directory, the deletion of a file, read/write a file and list the contents of a directory. You can skip this demo part now and start your lab from the next part `Part1: Block Layer`.After finish lab1, you can try to use the filesystem implemented by yourself! Follow the steps:
 
 - Under `chfs` directory, execute:
 
@@ -207,11 +217,13 @@ If your implementation is correct, you should pass the unit tests:
 - `BlockManagerTest.ZeroTest`
 - `BlockManagerTest.InMemoryTest`
 
-You may refer to `test/block/manager_test.cc` for the detailed implementation of these unit tests to help you debug.
+Do not forget to re-compile your project before your test!
+
+You may refer to `test/block/manager_test.cc` for the detailed implementation of these unit tests to help you debug. You can change the test file to print some logs for you to debug, but we will use the original version when grading.
 
 ### Part 1B: Block Allocator
 
-In Part 1B, you will implement the block allocator of block layer. The block allocator in this lab utilizes a bitmap to manage the allocation and deallocation of the blocks. The bitmap is stored in some blocks in the block device. You may refer to the definition of class `BlockAllocator` and the comments of these functions in `src/include/block/allocator.h` for more detailed information. You may also refer to `src/include/common/bitmap.h` for the APIs to manipulate a bitmap.
+In Part 1B, you will implement the block allocator of block layer. The block allocator in this lab utilizes a bitmap to manage the allocation and deallocation of the blocks. The bitmap is stored in some blocks in the block device. You may refer to the definition of class `BlockAllocator` and the comments of these functions in `src/include/block/allocator.h` for more detailed information. You may also refer to `src/include/common/bitmap.h` for the APIs to manipulate a bitmap. Note that the `bitmap` class should be constructed dynamically when you want to manipulate bit in a `u8` buffer.
 
 You have to implement the following functions inside `src/block/allocator.cc` (You can only modify this file, do not modify any other files) :
 - `allocate`: Allocate a block, return its block id.
@@ -230,7 +242,7 @@ The inode layer manages the blocks provided by the block layer in the form of in
 
 In Part 2A, you will implement the Inode Manager of the Inode Layer. 
 
-We have implemented the structure of the Inode. You may refer to `src/include/metadata/inode.h` and `src/metadata/inode.cc` for the definition of class `Inode`. In this lab, the layout of one inode fits exactly in a single block.
+We have implemented the structure of the Inode. You may refer to `src/include/metadata/inode.h` and `src/metadata/inode.cc` for the definition of class `Inode`. In this lab, the layout of one inode fits exactly in a single block. This will simplify your implementation.
 
 The Inode Manager assumes the following layout on block device:
 
@@ -238,7 +250,9 @@ The Inode Manager assumes the following layout on block device:
 | Super block | Inode Table | Inode allocation bitmap | Block allocation bitmap | Other data blocks |
 ```
 
-Note that the Inode Table stores the mapping relationships of `inode_id->block_id`. Given the id of an inode, to know its index in the Inode Table (and vice versa), you can use the Macros `RAW_2_LOGIC` and `LOGIC_2_RAW` in `src/metadata/manager.cc`.
+**Note that the Inode Table stores the mapping relationships of `inode_id->block_id`.** Given the id of an inode, to know its index in the Inode Table (and vice versa), you can use the Macros `RAW_2_LOGIC` and `LOGIC_2_RAW` in `src/metadata/manager.cc`. You should implement `get` function in `src/metadata/manager.cc` to read the corresponding block first, then get the `block_id`.
+
+**Note that the block layout of this lab is slightly different from the layout you learned in class.** In particular, `Inode Table` here is a mapping from the `inode_id` to `block_id`, while `Inode Table` in class is reserved. We choose this design in lab because it will allocate blocks for inode table dynamically, rather than pre-allocate them statically. It will have better block utilization.
 
 Your task in this part is to implement the following function inside `src/metadata/manager.cc` (You can only modify this file, do not modify any other files) :
 - `allocate_inode`: Allocate an inode and initialize it with the specific type. This function takes the block id of the inode, because this function assumes that the block where the inode resides has already been allocated.
@@ -369,7 +383,7 @@ You can also execute the following command to execute one specific integration t
     - `chfs_setattr`
     - `chfs_lookup`
 
-    Each of these functions implements one standard filesystem operation used by other user applications. You can use `std::cout` inside these functions to output more information to help you debug. You may also refer [the the libfuse document](http://libfuse.github.io/doxygen/index.html) to understand the libfuse APIs (the `fuse_xxx` functions) used in the adaptor layer.
+    Each of these functions implements one standard filesystem operation used by other user applications. You can use `std::cout` inside these functions to output more information to help you debug. You may also refer [the the libfuse document](http://libfuse.github.io/doxygen/index.html) to understand the libfuse APIs (the `fuse_xxx` functions) used in the adaptor layer. These functions may help you to understand the behavior of functions you implemented in `src/filesystem/data_op.cc` and `src/filesystem/directory_op.cc`.
 
 - Please note that passing all the unit tests does not guarantee the complete correctness of your implementations. So you may need to go back to fix the bugs  if you cannot pass the integration tests.
 
@@ -403,3 +417,4 @@ Execute the following command under `scripts/lab1` directory:
 ```
 
 Then you will see a `handin.tgz` file under the root directory of this project. Please rename it in the format of: `lab1_[your student id].tgz`, and upload this `.tgz` file to Canvas.
+If you use docker environment, remember to execute the `handin.sh` in the docker environment. You can use `docker cp` command to copy your `handin.tgz` file from the docker environment to host.

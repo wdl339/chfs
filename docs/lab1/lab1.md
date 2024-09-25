@@ -48,14 +48,15 @@ If you are not familiar with docker container, [this tutorial](https://www.runoo
     - Pull from remote repository:
 
     ```bash
-   docker pull kecelestial/chfs_image:latest 
+    docker pull registry.cn-shenzhen.aliyuncs.com/cse-lab/cse-lab:v1 
+
+    docker tag registry.cn-shenzhen.aliyuncs.com/cse-lab/cse-lab:v1 chfs_image
    ```
     - Build the docker image locally. Execute the following command inside the directory `chfs`:
 
     ```bash
     docker build -t chfs_image .
     ```
-  If you meet problem when you try to pull docker image, it may because the network firewall or bad dns. You can change the docker image mirror or use proxy.
 
 - Create a docker container. You only need to create the docker container once if you have not deleted the container. Execute the following command inside the directory `chfs`. The following command mounts the `chfs` directory to the docker container, which means that all the changes to the files inside the directory will be reflected inside the docker container, and vice versa.
 

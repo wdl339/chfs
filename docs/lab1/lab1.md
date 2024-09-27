@@ -252,9 +252,22 @@ The Inode Manager assumes the following layout on block device:
 | Super block | Inode Table | Inode allocation bitmap | Block allocation bitmap | Other data blocks |
 ```
 
-**Note that the Inode Table stores the mapping relationships of `inode_id->block_id`.** Given the id of an inode, to know its index in the Inode Table (and vice versa), you can use the Macros `RAW_2_LOGIC` and `LOGIC_2_RAW` in `src/metadata/manager.cc`. You should implement `get` function in `src/metadata/manager.cc` to read the corresponding block first, then get the `block_id`.
+<font color=red size=4>Important: Note that the block layout of this lab is slightly different from the layout you learned in class!!!</font>
 
-**Note that the block layout of this lab is slightly different from the layout you learned in class.** In particular, `Inode Table` here is a mapping from the `inode_id` to `block_id`, while `Inode Table` in class is reserved. We choose this design in lab because it will allocate blocks for inode table dynamically, rather than pre-allocate them statically. It will have better block utilization.
+- `Inode Table` here is a mapping from the `inode_id` to `block_id`, while `Inode Table` in class is reserved. We choose this in-direction design in lab because it will allocate blocks for inode table dynamically, rather than pre-allocate them statically. It will have better block utilization.
+
+- `Inode allocation bitmap` is a bitmap to indicate the usage of each Inode. If an inode is occupied, the corresponding bit in the bitmap is set to `1`. When an `Inode` is allocated or deallocated, the data in this area should be changed.
+
+- `Block allocation bitmap` is a bitmap to indicate the usage of each Block. If an block is allocated, the corresponding bit in the bitmap is set to `1`. Note that the `Block allocation bitmap` itself is also stored in the block layout.
+
+- `Other data blocks` contains other blocks you allocated by the `BlockAllocator`. The `Inode` you learned in the class is actually stored in these blocks.
+
+**Note that the Inode Table stores the indirection mapping relationships of `inode_id->block_id`.** The block_id is the block which actually stores the `Inode` (Do not forget one Inode matches one block exactly).
+You should implement `get` function in `src/metadata/manager.cc` to read the corresponding `Inode Table` block first, then get the `block_id`. Then you can read the actual `Inode` structure via this `block_id`.
+
+Given the id of an inode, to know its index in the Inode Table (and vice versa), you can use the Macros `RAW_2_LOGIC` and `LOGIC_2_RAW` in `src/metadata/manager.cc`. 
+
+
 
 Your task in this part is to implement the following function inside `src/metadata/manager.cc` (You can only modify this file, do not modify any other files) :
 - `allocate_inode`: Allocate an inode and initialize it with the specific type. This function takes the block id of the inode, because this function assumes that the block where the inode resides has already been allocated.

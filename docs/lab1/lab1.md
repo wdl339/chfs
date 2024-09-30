@@ -4,11 +4,11 @@
 
 ### Lab 1 Introduction
 
-In Lab 1, you will implement a single-machine inode-based filesystem step by step. Let's have a glance at the architecture of this filesystem:
+In Lab 1, you will implement a single-machine (threaded) inode-based filesystem step by step. Below is the filesystem's architecture:
 
 ![overall-arch](./lab1_1.png)
 
-As you can see, this filesystem consists of three layers: block layer, inode layer and filesystem layer.
+Our filesystem consists of three layers: block layer, inode layer and filesystem layer.
 
 The block layer implements a block device which provides APIs to allocate/deallocate blocks, read/write data from/to the blocks. 
 
@@ -39,7 +39,7 @@ git submodule update
 
 ### Docker Container
 
-We use docker container for all of your CSE labs in this semester, and we will provide a container image including all the environments your need for these labs. 
+We use docker container for all of your CSE labs, and we have provided a container image including all the environments your need for these labs. 
 This will simplify the configuration of the environments.
 
 If you are not familiar with docker container, [this tutorial](https://www.runoob.com/docker/docker-container-usage.html) may help you quickly grasp how to use docker container. If you haven't install docker before, please install docker on your own workspace. You can refer [this tutorial](https://docs.docker.com/desktop/install/windows-install/) to install docker.
@@ -243,6 +243,8 @@ The inode layer manages the blocks provided by the block layer in the form of in
 ### Part 2A: Inode and Inode Manager
 
 In Part 2A, you will implement the Inode Manager of the Inode Layer. 
+<font color=red size=4>Important: Note that the block layout of this lab is slightly different from the layout you learned in class!!!</font>
+Please check below for more details. 
 
 We have implemented the structure of the Inode. You may refer to `src/include/metadata/inode.h` and `src/metadata/inode.cc` for the definition of class `Inode`. In this lab, the layout of one inode fits exactly in a single block. This will simplify your implementation.
 
@@ -252,9 +254,9 @@ The Inode Manager assumes the following layout on block device:
 | Super block | Inode Table | Inode allocation bitmap | Block allocation bitmap | Other data blocks |
 ```
 
-<font color=red size=4>Important: Note that the block layout of this lab is slightly different from the layout you learned in class!!!</font>
-
-- `Inode Table` here is a mapping from the `inode_id` to `block_id`, while `Inode Table` in class is reserved. We choose this in-direction design in lab because it will allocate blocks for inode table dynamically, rather than pre-allocate them statically. It will have better block utilization.
+- `Inode Table` here is a mapping from the `inode_id` to `block_id`, 
+which is different from the class such that the inode table directly stores the block.
+We choose this in-direction design in lab because it will allocate blocks for inode table dynamically, rather than pre-allocate them statically. It will have better block utilization at the cost of one more lookup for the inode.
 
 - `Inode allocation bitmap` is a bitmap to indicate the usage of each Inode. If an inode is occupied, the corresponding bit in the bitmap is set to `1`. When an `Inode` is allocated or deallocated, the data in this area should be changed.
 
@@ -266,7 +268,6 @@ The Inode Manager assumes the following layout on block device:
 You should implement `get` function in `src/metadata/manager.cc` to read the corresponding `Inode Table` block first, then get the `block_id`. Then you can read the actual `Inode` structure via this `block_id`.
 
 Given the id of an inode, to know its index in the Inode Table (and vice versa), you can use the Macros `RAW_2_LOGIC` and `LOGIC_2_RAW` in `src/metadata/manager.cc`. 
-
 
 
 Your task in this part is to implement the following function inside `src/metadata/manager.cc` (You can only modify this file, do not modify any other files) :

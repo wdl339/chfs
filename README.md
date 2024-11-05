@@ -1,3 +1,3 @@
-# Lab 1: Basic Filesystem
+# Lab 2: Distributed FileSystem
 
-[Document](./docs/lab1/lab1.md)
+[Document](./docs/lab2/lab2.md)

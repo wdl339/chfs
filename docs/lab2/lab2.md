@@ -58,7 +58,7 @@ Finally, you need to implement the log manager in the metadata server so that th
 
 Please refer to the [Grading](#grading) section of this document.
 
-**Note:** If your host OS is Linux, you may encounter some permission issues when running `cmake ..`, as shown in the figure below.
+**Note:** If you have encountered some permission issues when running `cmake ..`, as shown in the figure below:
 
 ![permission_issue](permission_issue.png)
 

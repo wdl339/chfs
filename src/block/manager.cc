@@ -94,8 +94,7 @@ auto BlockManager::write_block(block_id_t block_id, const u8 *data)
   }
   
 
-  // TODO: Implement this function.
-  UNIMPLEMENTED();
+  memcpy(this->block_data + block_id * this->block_sz, data, this->block_sz);
   this->write_fail_cnt++;
   return KNullOk;
 }
@@ -110,25 +109,37 @@ auto BlockManager::write_partial_block(block_id_t block_id, const u8 *data,
     }
   }
 
-  // TODO: Implement this function.
-  UNIMPLEMENTED();
+  memcpy(this->block_data + block_id * this->block_sz + offset, data, len);
   this->write_fail_cnt++;
   return KNullOk;
 }
 
 auto BlockManager::read_block(block_id_t block_id, u8 *data) -> ChfsNullResult {
-
-  // TODO: Implement this function.
-  UNIMPLEMENTED();
-
+  memcpy(data, this->block_data + block_id * this->block_sz, this->block_sz);
   return KNullOk;
 }
 
 auto BlockManager::zero_block(block_id_t block_id) -> ChfsNullResult {
-  
-  // TODO: Implement this function.
-  UNIMPLEMENTED();
+  memset(this->block_data + block_id * this->block_sz, 0, this->block_sz);
+  return KNullOk;
+}
 
+auto BlockManager::sync(block_id_t block_id) -> ChfsNullResult {
+  if (block_id >= this->block_cnt) {
+    return ChfsNullResult(ErrorType::INVALID_ARG);
+  }
+
+  auto res = msync(this->block_data + block_id * this->block_sz, this->block_sz,
+        MS_SYNC | MS_INVALIDATE);
+  if (res != 0)
+    return ChfsNullResult(ErrorType::INVALID);
+  return KNullOk;
+}
+
+auto BlockManager::flush() -> ChfsNullResult {
+  auto res = msync(this->block_data, this->block_sz * this->block_cnt, MS_SYNC | MS_INVALIDATE);
+  if (res != 0)
+    return ChfsNullResult(ErrorType::INVALID);
   return KNullOk;
 }
 

@@ -1,8 +1,8 @@
 # Lab 3
 
-**Hand out: Nov 19, 2023** 
+**Hand out: Nov 28, 2024** 
 
-**Deadline: Dec 3 23:59, No Extension**
+**Deadline: Dec 18 23:59, No Extension**
 
 ## Introduction
 
@@ -25,6 +25,38 @@ There are 4 parts in this lab.
 * In part 4, you will implement the snapshot mechanism of Raft.
 
 Each part relies on the implementation of the prior one. So you must implement these parts one by one.
+
+## Preparation
+
+### Get the source code
+
+- Pull the source code of lab3 from our GitLab:
+
+```bash
+cd chfs && git pull
+```
+
+- Change it to the lab3 branch
+
+```bash
+git checkout -b lab3 origin/lab3
+```
+
+- Merge with the code of lab2 and resolve any conflicts on your own if there are any.
+
+```bash
+git merge lab2
+```
+
+- Update submodules if needed:
+
+```bash
+git submodule update --init --recursive
+```
+
+### Compile Code And Test
+
+Please also refer to [lab1.md](../lab1/lab1.md) for more details. It's the same with lab1.
 
 ## Overview of the code
 
@@ -227,6 +259,7 @@ You should pass the two test cases in RaftTestPart1:
 
 * Test:
   * You can run a single test case by editing `test/CMakeLists.txt`, and write the test cases you want to run after `TEST_FILTER`. For example, `RaftTestPart1.LeaderElection` for testing leader election and `RaftTestPart1*` for testing all the cases in part1.
+  * If you want to run the previous lab's test code, just delete the `TEST_FILTER` line.
 * Debug:
   * We provide a macro in `node.h` named `RAFT_LOG`, you can use this macro to print the system log for debugging. The usage of this macro is the same as `printf`, e.g. `RAFT_LOG("Three is %d", 3);`. But it will provide additional information, such as node_id and term, in the console.
 * Implementation:
@@ -319,3 +352,12 @@ Hints:
 * To make the code clear, you can use two concepts for the log index: physical index (e.g. the index of the `std::vector`) and logical index (e.g. physical index + snapshot index). 
 * This part may introduce many changes to your code base. So you'd better commit your codes before this part. 
 
+## Handin 
+
+Execute the following command under `scripts/lab3` directory:
+
+```bash
+./handin.sh
+```
+
+Then you will see a `handin.tgz` file under the root directory of this project. Please rename it in the format of: `lab3_[your student id].tgz`, and upload this `.tgz` file to Canvas.

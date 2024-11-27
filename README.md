@@ -1,3 +1,3 @@
-# Lab 2: Distributed FileSystem
+# Lab 3: Raft
 
-[Document](./docs/lab2/lab2.md)
+[Document](./docs/lab3/raft.md)

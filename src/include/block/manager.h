@@ -16,11 +16,52 @@
 #include "common/config.h"
 #include "common/macros.h"
 #include "common/result.h"
+#include <cstring>
 
 namespace chfs {
 // TODO
 
 class BlockIterator;
+
+enum class TxnType {MKNODE, UNLINK};
+
+class SuperLogBlock {
+public:
+  u16 current_log_id;
+  u16 log_block_cnt;
+  u16 current_txn_id;
+  u16 txn_entry_cnt;
+};
+
+class ActionEntry {
+public:
+  block_id_t block_id;
+  int64_t table_offset;
+
+  ActionEntry(block_id_t block_id) : block_id(block_id), table_offset(-1) {}
+
+  ActionEntry() : block_id(0), table_offset(-1) {}
+};
+
+class TxnEntry {
+public:
+  u16 txn_id;
+  TxnType txn_type;
+  u8 type;
+  inode_id_t parent;
+  const char* name;
+  bool is_committed;
+  int64_t table_offset;
+
+  TxnEntry(u16 txn_id, TxnType txn_type, u8 type, inode_id_t parent,
+            const char* name)
+        : txn_id(txn_id), txn_type(txn_type), type(type), parent(parent),
+          name(name), is_committed(false), table_offset(-1) {}
+
+  TxnEntry() : txn_id(0), txn_type(TxnType::MKNODE), type(0), parent(0),
+               name(nullptr), is_committed(false), table_offset(-1) {}
+
+};
 
 /**
  * BlockManager implements a block device to read/write block devices
@@ -28,6 +69,8 @@ class BlockIterator;
  */
 class BlockManager {
   friend class BlockIterator;
+  friend class CommitLog;
+  friend class MetadataServer;
 
 protected:
   const usize block_sz = 4096;
@@ -39,6 +82,7 @@ protected:
   bool in_memory; // whether we use in-memory to emulate the block manager
   bool maybe_failed;
   usize write_fail_cnt;
+  bool is_log_enabled;
 
 public:
   /**

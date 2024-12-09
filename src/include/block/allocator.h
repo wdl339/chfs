@@ -33,6 +33,7 @@ class InodeManager;
 class BlockAllocator {
   friend class SuperBlock;
   friend class nodeManager;
+  friend class MetadataServer;
 
 public:
   std::shared_ptr<BlockManager> bm;

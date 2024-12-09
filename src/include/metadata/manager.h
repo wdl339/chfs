@@ -32,6 +32,7 @@ class FileOperation;
  * Block allocation bitmap ... |  Other data blocks   |
  */
 class InodeManager {
+  friend class MetadataServer;
   friend class FileOperation;
   // We will modify the block manager
   std::shared_ptr<BlockManager> bm;

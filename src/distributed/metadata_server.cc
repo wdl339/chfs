@@ -119,74 +119,296 @@ MetadataServer::MetadataServer(std::string const &address, u16 port,
   }
 }
 
-// {Your code here}
+
 auto MetadataServer::mknode(u8 type, inode_id_t parent, const std::string &name)
     -> inode_id_t {
-  // TODO: Implement this function.
-  UNIMPLEMENTED();
+  const char* name_c = name.c_str();
+  fo_mtx.lock();
+  // auto res = this->operation_->mk_helper(parent, name_c, static_cast<InodeType>(type));
+  // fo_mtx.unlock();
+  txn_id_t txn_id ;
 
-  return 0;
+  if (is_log_enabled_) {
+    txn_id = commit_log->alloc_txn(TxnType::MKNODE, type, parent, name_c);
+  }
+
+  std::list<DirectoryEntry> list;
+  auto read_res = read_directory(this->operation_.get(), parent, list);
+  if (read_res.is_err()) {
+    fo_mtx.unlock();
+    return 0;
+  }
+
+  for (const auto &entry : list) {
+    if (entry.name == name) {
+      fo_mtx.unlock();
+      return 0;
+    }
+  }
+
+  auto alloc_res = this->operation_->alloc_inode(static_cast<InodeType>(type));
+  if (alloc_res.is_err()) {
+    fo_mtx.unlock();
+    return 0;
+  }
+  inode_id_t new_inode_id = alloc_res.unwrap();
+
+  std::string dir_content = dir_list_to_string(list);
+  if (!dir_content.empty()){
+    dir_content += "/";
+  }
+  dir_content = append_to_directory(dir_content, name_c, new_inode_id);
+  std::vector<u8> data(dir_content.begin(), dir_content.end());
+
+  auto write_res = this->operation_->write_file(parent, data);
+  if (write_res.is_err()) {
+    fo_mtx.unlock();
+    return 0;
+  }
+
+  if (is_log_enabled_) {
+    commit_log->commit_log(txn_id);
+  }
+
+  fo_mtx.unlock();
+  return new_inode_id;
 }
 
-// {Your code here}
+
 auto MetadataServer::unlink(inode_id_t parent, const std::string &name)
     -> bool {
-  // TODO: Implement this function.
-  UNIMPLEMENTED();
+  const char* name_c = name.c_str();
+  fo_mtx.lock();
+  // auto res = this->operation_->unlink(parent, name_c);
+  // fo_mtx.unlock();
 
-  return false;
+  txn_id_t txn_id;
+  if (is_log_enabled_) {
+    txn_id = commit_log->alloc_txn(TxnType::UNLINK, 0, parent, name_c);
+  }
+
+  std::list<DirectoryEntry> list;
+  list.clear();
+  auto read_res = read_directory(this->operation_.get(), parent, list);
+  if (read_res.is_err()) {
+    fo_mtx.unlock();
+    return false;
+  }
+
+  auto lookup_res = this->operation_->lookup(parent, name_c);
+  if (lookup_res.is_err()) {
+    fo_mtx.unlock();
+    return false;
+  }
+  inode_id_t inode_id = lookup_res.unwrap();
+
+  auto remove_res = this->operation_->remove_file(inode_id);
+  if (remove_res.is_err()) {
+    fo_mtx.unlock();
+    return false;
+  }
+
+  std::string dir_content = dir_list_to_string(list);
+  if (!dir_content.empty()){
+    dir_content += "/";
+  }
+  dir_content = rm_from_directory(dir_content, name);
+  std::vector<u8> data(dir_content.begin(), dir_content.end());
+
+  auto write_res = this->operation_->write_file(parent, data);
+  if (write_res.is_err()) {
+    fo_mtx.unlock();
+    return false;
+  }
+
+  if (is_log_enabled_) {
+    commit_log->commit_log(txn_id);
+  }
+  
+  fo_mtx.unlock();
+  return true;
 }
 
-// {Your code here}
+
 auto MetadataServer::lookup(inode_id_t parent, const std::string &name)
     -> inode_id_t {
-  // TODO: Implement this function.
-  UNIMPLEMENTED();
+  const char* name_c = name.c_str();
+  auto res = this->operation_->lookup(parent, name_c);
 
-  return 0;
+  if (res.is_err()) {
+    return 0;
+  }
+
+  return res.unwrap();
 }
 
-// {Your code here}
+
 auto MetadataServer::get_block_map(inode_id_t id) -> std::vector<BlockInfo> {
-  // TODO: Implement this function.
-  UNIMPLEMENTED();
+  std::vector<BlockInfo> ret;
+  usize block_size = this->operation_->block_manager_->block_size();
+  std::vector<u8> inode(block_size);
+  auto inode_p = reinterpret_cast<Inode *>(inode.data());
+  fo_mtx.lock();
+  auto inode_res = this->operation_->inode_manager_->read_inode(id, inode);
+  fo_mtx.unlock();
+  if (inode_res.is_err()) {
+    return {};
+  }
 
-  return {};
+  u64 content_sz = inode_p->get_size();
+  auto num_block = content_sz / block_size;
+  if(content_sz % block_size != 0)
+    num_block++;
+
+  for(int i = 0; i < num_block; i++){
+    block_id_t block_id = inode_p->blocks[i * 2];
+    u64 mv_id = inode_p->blocks[i * 2 + 1];
+    mac_id_t mac_id = mv_id >> 32;
+    version_t version_id = mv_id & 0xFFFFFFFF;
+    ret.push_back({block_id, mac_id, version_id});
+  }
+
+  return ret;
 }
 
-// {Your code here}
+
 auto MetadataServer::allocate_block(inode_id_t id) -> BlockInfo {
-  // TODO: Implement this function.
-  UNIMPLEMENTED();
+  auto bm = this->operation_->block_manager_;
+  usize block_size = bm->block_size();
+  std::vector<u8> inode(block_size);
+  auto inode_p = reinterpret_cast<Inode *>(inode.data());
+  fo_mtx.lock();
+  auto read_res = this->operation_->inode_manager_->read_inode(id, inode);
+  if (read_res.is_err()) {
+    return {};
+  }
+  auto inode_id = read_res.unwrap();
+  
+  block_id_t block_id = 0;
+  mac_id_t mac_id = 0;
+  version_t version_id = 0;
+  mac_id_t generated_id = generator.rand(1, num_data_servers);
 
-  return {};
+  for(int try_times = 0; ; try_times++){
+    mac_id = (generated_id + try_times) % num_data_servers + 1;
+    auto alloc_res = clients_[mac_id]->call("alloc_block");
+    if(alloc_res.is_err())
+      continue;
+
+    auto resp = alloc_res.unwrap();
+    auto bv_id = resp->as<std::pair<block_id_t, version_t>>();
+    block_id = bv_id.first;
+    version_id = bv_id.second;
+    if(!block_id)
+      continue;
+      
+    break;
+  }
+
+  u64 content_sz = inode_p->get_size();
+  auto num_block = content_sz / block_size;
+  if(content_sz % block_size != 0)
+    num_block++;
+
+  inode_p->blocks[num_block * 2] = block_id;
+  inode_p->blocks[num_block * 2 + 1] = (static_cast<u64>(mac_id) << 32) | static_cast<u64>(version_id);
+  inode_p->inner_attr.size += block_size;
+  inode_p->inner_attr.set_all_time(time(0));
+
+  auto write_res = bm->write_block(inode_id, inode.data());
+  fo_mtx.unlock();
+  if (write_res.is_err()) {
+    return {};
+  }
+
+  return {block_id, mac_id, version_id};
 }
 
-// {Your code here}
+
 auto MetadataServer::free_block(inode_id_t id, block_id_t block_id,
                                 mac_id_t machine_id) -> bool {
-  // TODO: Implement this function.
-  UNIMPLEMENTED();
+  auto bm = this->operation_->block_manager_;
+  usize block_size = bm->block_size();
+  std::vector<u8> inode(block_size);
+  auto inode_p = reinterpret_cast<Inode *>(inode.data());
+  fo_mtx.lock();
+  auto read_res = this->operation_->inode_manager_->read_inode(id, inode);
+  if (read_res.is_err()) {
+    return false;
+  }
+  auto inode_id = read_res.unwrap();
 
-  return false;
+  u64 content_sz = inode_p->get_size();
+  auto num_block = content_sz / block_size;
+  if(content_sz % block_size != 0)
+    num_block++;
+
+  bool find = false;
+
+  for(int i = 0; i < num_block; i++){
+    if (!find){
+      block_id_t bid = inode_p->blocks[i * 2];
+      u64 mv_id = inode_p->blocks[i * 2 + 1];
+      mac_id_t mac_id = mv_id >> 32;
+      if(bid == block_id && mac_id == machine_id){
+        inode_p->blocks[i * 2] = KInvalidBlockID;
+        inode_p->blocks[i * 2 + 1] = KInvalidBlockID;
+        find = true;
+      }
+    } else {
+      inode_p->blocks[i * 2 - 2] = inode_p->blocks[i * 2];
+      inode_p->blocks[i * 2 - 1] = inode_p->blocks[i * 2 + 1];
+    }
+  }
+
+  if(!find)
+    return false;
+
+  inode_p->inner_attr.size -= block_size;
+  inode_p->inner_attr.set_all_time(time(0));
+
+  auto write_res = bm->write_block(inode_id, inode.data());
+  if (write_res.is_err()) {
+    return false;
+  }
+
+  auto free_res = clients_[machine_id]->call("free_block", block_id);
+  fo_mtx.unlock();
+  if(free_res.is_err())
+    return false;
+  auto resp = free_res.unwrap();
+  auto res = resp->as<bool>();
+
+  return res;
 }
 
-// {Your code here}
+
 auto MetadataServer::readdir(inode_id_t node)
     -> std::vector<std::pair<std::string, inode_id_t>> {
-  // TODO: Implement this function.
-  UNIMPLEMENTED();
+  std::list<DirectoryEntry> list;
+  auto res = read_directory(this->operation_.get(), node, list);
+  if (res.is_err()) {
+    return {};
+  }
 
-  return {};
+  std::vector<std::pair<std::string, inode_id_t>> ret;
+  for (auto &entry : list) {
+    ret.push_back({entry.name, entry.id});
+  }
+  return ret;
 }
 
-// {Your code here}
+
 auto MetadataServer::get_type_attr(inode_id_t id)
     -> std::tuple<u64, u64, u64, u64, u8> {
-  // TODO: Implement this function.
-  UNIMPLEMENTED();
+  auto res = this->operation_->get_type_attr(id);
+  if (res.is_err()) {
+    return {0, 0, 0, 0, 0};
+  }
 
-  return {};
+  std::pair<InodeType, FileAttr> attr = res.unwrap();
+  return {attr.second.size, attr.second.atime, attr.second.mtime,
+          attr.second.ctime, static_cast<u8>(attr.first)};
 }
 
 auto MetadataServer::reg_server(const std::string &address, u16 port,

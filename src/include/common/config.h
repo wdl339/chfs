@@ -25,4 +25,15 @@ const usize DistributedMaxInodeSupported = 4096;
 const usize kMaxLogBlockSize = 10 * 1024; // 40MB, 10 * 1K * 4K/per block = 40M
 const usize kMaxLogSize = 128; // when this reaches, trigger checkpoint
 
+const usize SizeOfActionEntry = 16;
+const usize SizeOfTxnEntry = 48;
+const usize maxTxnEntryCnt = 70;
+const usize RealTxnBlockCnt = 1;
+const usize RealLogBlockCnt = 1024;
+const usize LogTableEntryCnt = DiskBlockSize / SizeOfActionEntry; // 256
+const usize LogTableBlockCnt = RealLogBlockCnt / LogTableEntryCnt; // 4
+const usize LogBlockCntWoTxn = RealLogBlockCnt + 1 + LogTableBlockCnt;
+const usize LogBlockCnt = RealLogBlockCnt + 1 + LogTableBlockCnt + RealTxnBlockCnt;
+const usize LogPrefixBlockCnt = 1 + LogTableBlockCnt; // 1+4=5
+
 } // namespace chfs

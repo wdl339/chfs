@@ -199,6 +199,24 @@ public:
     }
     operation_->block_manager_->set_may_fail(false);
     commit_log->recover();
+    BlockManager *bm = this->operation_->block_manager_.get();
+    std::vector<u16> log_super_block(bm->block_sz);
+    memcpy(log_super_block.data(), bm->block_data + bm->block_cnt * bm->block_sz, bm->block_sz);
+    auto super_block = reinterpret_cast<SuperLogBlock *>(log_super_block.data());
+    u16 txn_entry_cnt = super_block->txn_entry_cnt;
+    for (u16 i = 0; i < txn_entry_cnt; i++) {
+      TxnEntry txn_entry;
+      memcpy(&txn_entry, bm->block_data + (bm->block_cnt + LogBlockCntWoTxn) * bm->block_sz + i * sizeof(TxnEntry), sizeof(TxnEntry));
+      if (txn_entry.is_committed != true) {
+        if (txn_entry.txn_type == TxnType::MKNODE) {
+          const std::string name(txn_entry.name);
+          mknode(txn_entry.type, txn_entry.parent, name);
+        } else if (txn_entry.txn_type == TxnType::UNLINK) {
+          const std::string name(txn_entry.name);
+          unlink(txn_entry.parent, name);
+        }
+      }
+    }
     operation_->block_manager_->set_may_fail(true);
   }
 
@@ -242,9 +260,8 @@ private:
   bool may_failed_;
   [[maybe_unused]] bool is_checkpoint_enabled_;
 
-  /**
-   * {You can add anything you want here}
-   */
+  // concurrency related
+  std::mutex fo_mtx;
 };
 
 } // namespace chfs

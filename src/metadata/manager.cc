@@ -1,3 +1,4 @@
+
 #include <vector>
 
 #include "common/bitmap.h"
@@ -66,7 +67,6 @@ auto InodeManager::create_from_block_manager(std::shared_ptr<BlockManager> bm,
   return ChfsResult<InodeManager>(res);
 }
 
-// { Your code here }
 auto InodeManager::allocate_inode(InodeType type, block_id_t bid)
     -> ChfsResult<inode_id_t> {
   auto iter_res = BlockIterator::create(this->bm.get(), 1 + n_table_blocks,
@@ -94,31 +94,58 @@ auto InodeManager::allocate_inode(InodeType type, block_id_t bid)
         return ChfsResult<inode_id_t>(res.unwrap_error());
       }
 
-      // TODO:
       // 1. Initialize the inode with the given type.
       // 2. Setup the inode table.
       // 3. Return the id of the allocated inode.
       //    You may have to use the `RAW_2_LOGIC` macro
       //    to get the result inode id.
-      UNIMPLEMENTED();
+      Inode inode(type, bm->block_size());
+      auto inode_id = count * bm->block_size() * KBitsPerByte + free_idx.value();
+      // printf("count: %lu, free_idx: %u, bid: %lu, inode_id: %lu\n", count, free_idx.value(), bid, inode_id);
+
+      auto status = bm->write_block(bid, reinterpret_cast<u8 *>(&inode));
+      if (status.is_err()) {
+        return ChfsResult<inode_id_t>(status.unwrap_error());
+      }
+
+      auto status2 = set_table(inode_id, bid);
+      if (status2.is_err()) {
+        return ChfsResult<inode_id_t>(status2.unwrap_error());
+      }
+
+      return ChfsResult<inode_id_t>(RAW_2_LOGIC(inode_id));
     }
   }
 
   return ChfsResult<inode_id_t>(ErrorType::OUT_OF_RESOURCE);
 }
 
-// { Your code here }
 auto InodeManager::set_table(inode_id_t idx, block_id_t bid) -> ChfsNullResult {
 
   // TODO: Implement this function.
   // Fill `bid` into the inode table entry
   // whose index is `idx`.
-  UNIMPLEMENTED();
+  auto inode_per_block = bm->block_size() / sizeof(block_id_t);
+  auto block_id = 1 + idx / inode_per_block;
+  auto offset = idx % inode_per_block;
+  auto buffer = std::vector<u8>(bm->block_size(), 0);
+
+  auto res = bm->read_block(block_id, buffer.data());
+  if (res.is_err()) {
+    return ChfsNullResult(res.unwrap_error());
+  }
+
+  auto table = reinterpret_cast<block_id_t *>(buffer.data());
+  table[offset] = bid;
+
+  auto res2 = bm->write_block(block_id, buffer.data());
+  if (res2.is_err()) {
+    return ChfsNullResult(res2.unwrap_error());
+  }
 
   return KNullOk;
 }
 
-// { Your code here }
 auto InodeManager::get(inode_id_t id) -> ChfsResult<block_id_t> {
   block_id_t res_block_id = 0;
 
@@ -127,8 +154,20 @@ auto InodeManager::get(inode_id_t id) -> ChfsResult<block_id_t> {
   // from the inode table. You may have to use
   // the macro `LOGIC_2_RAW` to get the inode
   // table index.
-  UNIMPLEMENTED();
+  auto inode_per_block = bm->block_size() / sizeof(block_id_t);
+  auto idx = LOGIC_2_RAW(id);
 
+  auto block_id = 1 + idx / inode_per_block;
+  auto offset = idx % inode_per_block;
+  auto buffer = std::vector<u8>(bm->block_size(), 0);
+
+  auto res = bm->read_block(block_id, buffer.data());
+  if (res.is_err()) {
+    return ChfsResult<block_id_t>(res.unwrap_error());
+  }
+
+  auto table = reinterpret_cast<block_id_t *>(buffer.data());
+  res_block_id = table[offset];
   return ChfsResult<block_id_t>(res_block_id);
 }
 
@@ -223,7 +262,25 @@ auto InodeManager::free_inode(inode_id_t id) -> ChfsNullResult {
   //    You may have to use macro `LOGIC_2_RAW`
   //    to get the index of inode table from `id`.
   // 2. Clear the inode bitmap.
-  UNIMPLEMENTED();
+  auto idx = LOGIC_2_RAW(id);
+  set_table(idx, KInvalidBlockID);
+
+  auto buffer = std::vector<u8>(bm->block_size(), 0);
+  auto block_idx = 1 + n_table_blocks + idx / bm->block_size();
+  auto offset = idx % bm->block_size();
+
+  auto res = bm->read_block(block_idx, buffer.data());
+  if (res.is_err()) {
+    return ChfsNullResult(res.unwrap_error());
+  }
+
+  auto bitmap = Bitmap(buffer.data(), bm->block_size());
+  bitmap.clear(offset);
+
+  auto res2 = bm->write_block(block_idx, buffer.data());
+  if (res2.is_err()) {
+    return ChfsNullResult(res2.unwrap_error());
+  }
 
   return KNullOk;
 }

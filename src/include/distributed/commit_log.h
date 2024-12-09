@@ -56,6 +56,7 @@ public:
   auto checkpoint() -> void;
   auto recover() -> void;
   auto get_log_entry_num() -> usize;
+  auto alloc_txn(TxnType txn_type, u8 type, inode_id_t parent, const char* name) -> txn_id_t;
 
   bool is_checkpoint_enabled_;
   std::shared_ptr<BlockManager> bm_;

@@ -8,6 +8,17 @@
 
 namespace chfs {
 
+template <typename Command>
+class RaftLogEntry {
+public:
+    int term;
+    int index;
+    Command command;
+
+    RaftLogEntry(int term, int index, Command command)
+        : term(term), index(index), command(command) {}
+};
+
 /** 
  * RaftLog uses a BlockManager to manage the data..
  */
@@ -29,14 +40,11 @@ private:
 template <typename Command>
 RaftLog<Command>::RaftLog(std::shared_ptr<BlockManager> bm)
 {
-    /* Lab3: Your code here */
+    bm_ = bm;
 }
 
 template <typename Command>
-RaftLog<Command>::~RaftLog()
-{
-    /* Lab3: Your code here */
-}
+RaftLog<Command>::~RaftLog() {}
 
 /* Lab3: Your code here */
 

@@ -80,11 +80,13 @@ struct RpcAppendEntriesArgs {
     int leaderId;       // so follower can redirect clients
     int prevLogIndex;   // index of log entry immediately preceding new ones
     int prevLogTerm;    // term of prevLogIndex entry
-    std::vector<u8> entries; // log entries to store (empty for heartbeat; may send more than one for efficiency)
+    std::vector<int> logEntryTerms;
+    std::vector<int> logEntryIndexs;
+    std::vector<std::vector<u8>> logEntryCommands; // log entries to store (empty for heartbeat; may send more than one for efficiency)
     int leaderCommit;   // leader’s commitIndex
 
-    RpcAppendEntriesArgs(int term, int leaderId, int prevLogIndex, int prevLogTerm, std::vector<u8> entries, int leaderCommit)
-        : term(term), leaderId(leaderId), prevLogIndex(prevLogIndex), prevLogTerm(prevLogTerm), entries(entries), leaderCommit(leaderCommit) {}
+    RpcAppendEntriesArgs(int term, int leaderId, int prevLogIndex, int prevLogTerm, std::vector<int> logEntryTerms, std::vector<int> logEntryIndexs, std::vector<std::vector<u8>> logEntryCommands, int leaderCommit)
+        : term(term), leaderId(leaderId), prevLogIndex(prevLogIndex), prevLogTerm(prevLogTerm), logEntryTerms(logEntryTerms), logEntryIndexs(logEntryIndexs), logEntryCommands(logEntryCommands), leaderCommit(leaderCommit) {}
 
     RpcAppendEntriesArgs() {}
 
@@ -93,7 +95,9 @@ struct RpcAppendEntriesArgs {
         leaderId,
         prevLogIndex,
         prevLogTerm,
-        entries,
+        logEntryTerms,
+        logEntryIndexs,
+        logEntryCommands,
         leaderCommit
     )
 };
@@ -101,41 +105,43 @@ struct RpcAppendEntriesArgs {
 template <typename Command>
 RpcAppendEntriesArgs transform_append_entries_args(const AppendEntriesArgs<Command> &arg)
 {
-    RpcAppendEntriesArgs rpc_arg;
-    rpc_arg.term = arg.term;
-    rpc_arg.leaderId = arg.leaderId;
-    rpc_arg.prevLogIndex = arg.prevLogIndex;
-    rpc_arg.prevLogTerm = arg.prevLogTerm;
-    rpc_arg.leaderCommit = arg.leaderCommit;
-    rpc_arg.entries = {};
+    RpcAppendEntriesArgs rpc_arg(arg.term, arg.leaderId, arg.prevLogIndex, arg.prevLogTerm, {}, {}, {}, arg.leaderCommit);
+    for (auto entry : arg.entries) {
+        rpc_arg.logEntryTerms.push_back(entry.term);
+        rpc_arg.logEntryIndexs.push_back(entry.index);
+        std::vector<u8> cmd_data;
+        cmd_data = entry.command.serialize(entry.command.size());
+        rpc_arg.logEntryCommands.push_back(cmd_data);
+    }
     return rpc_arg;
 }
 
 template <typename Command>
 AppendEntriesArgs<Command> transform_rpc_append_entries_args(const RpcAppendEntriesArgs &rpc_arg)
 {
-    AppendEntriesArgs<Command> arg;
-    arg.term = rpc_arg.term;
-    arg.leaderId = rpc_arg.leaderId;
-    arg.prevLogIndex = rpc_arg.prevLogIndex;
-    arg.prevLogTerm = rpc_arg.prevLogTerm;
-    arg.leaderCommit = rpc_arg.leaderCommit;
-    arg.entries = {};
+    AppendEntriesArgs<Command> arg(rpc_arg.term, rpc_arg.leaderId, rpc_arg.prevLogIndex, rpc_arg.prevLogTerm, {}, rpc_arg.leaderCommit);
+    for (int i = 0; i < rpc_arg.logEntryIndexs.size(); i++) {
+        Command cmd;
+        cmd.deserialize(rpc_arg.logEntryCommands[i], rpc_arg.logEntryCommands[i].size());
+        arg.entries.push_back(RaftLogEntry<Command>(rpc_arg.logEntryTerms[i], rpc_arg.logEntryIndexs[i], cmd));
+    }
     return arg;
 }
 
 struct AppendEntriesReply {
     int term;           // currentTerm, for leader to update itself
     bool success;       // true if follower contained entry matching prevLogIndex and prevLogTerm
+    int followerIndex = -1; // follower's last log index
 
-    AppendEntriesReply(int term, bool success)
-        : term(term), success(success) {}
+    AppendEntriesReply(int term, bool success, int followerIndex = -1)
+        : term(term), success(success), followerIndex(followerIndex) {}
 
     AppendEntriesReply() {}
 
     MSGPACK_DEFINE(
         term,
-        success
+        success,
+        followerIndex
     )
 };
 

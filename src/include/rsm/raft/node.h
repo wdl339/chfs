@@ -141,16 +141,14 @@ private:
     std::atomic_bool stopped;
 
     RaftRole role;
+
     int current_term;
-    int leader_id;
-
-    std::unique_ptr<std::thread> background_election;
-    std::unique_ptr<std::thread> background_ping;
-    std::unique_ptr<std::thread> background_commit;
-    std::unique_ptr<std::thread> background_apply;
-
     int voted_for;
     std::vector<RaftLogEntry<Command>>log;
+
+    int leader_id;
+    int n_nodes;
+    std::vector<bool> vote_res;
 
     int commit_idx;
     int last_applied;
@@ -158,8 +156,10 @@ private:
     std::vector<int> next_idx;
     std::vector<int> match_idx;
 
-    int n_nodes;
-    std::vector<bool> vote_res;
+    std::unique_ptr<std::thread> background_election;
+    std::unique_ptr<std::thread> background_ping;
+    std::unique_ptr<std::thread> background_commit;
+    std::unique_ptr<std::thread> background_apply;
 
     std::chrono::time_point<std::chrono::system_clock> last_heartbeat_from_leader;
     std::chrono::time_point<std::chrono::system_clock> last_time_become_candidate;
@@ -233,11 +233,11 @@ RaftNode<StateMachine, Command>::RaftNode(int node_id, std::vector<RaftNodeConfi
         log_storage->init_all(current_term, voted_for, log, snapshot);
     }
 
-    commit_idx = log[0].index;
-    last_applied = log[0].index;
-
     n_nodes = configs.size();
     vote_res.resize(n_nodes, false);
+
+    commit_idx = log[0].index;
+    last_applied = log[0].index;
 
     last_heartbeat_from_leader = std::chrono::system_clock::now();
     last_time_become_candidate = std::chrono::system_clock::now();
@@ -358,7 +358,6 @@ auto RaftNode<StateMachine, Command>::new_command(std::vector<u8> cmd_data, int 
 
     lock.unlock();
     return std::make_tuple(true, current_term, new_log_idx);
-
 }
 
 template <typename StateMachine, typename Command>
@@ -504,11 +503,11 @@ auto RaftNode<StateMachine, Command>::append_entries(RpcAppendEntriesArgs rpc_ar
                 log.erase(log.begin() + arg.prevLogIndex + 1 - log[0].index, log.end());
                 log_storage->erase_log_entry(arg.prevLogIndex + 1 - log[0].index, log_size);
             }
+
             for (auto entry : arg.entries) {
                 log.push_back(entry);
                 log_storage->append_log_entry(entry);
             }
-            printf("Node %d log back index: %d\n", my_id, log.back().index);
 
             if (arg.leaderCommit > commit_idx) {
                 commit_idx = std::min(arg.leaderCommit, log.back().index);
@@ -533,6 +532,7 @@ void RaftNode<StateMachine, Command>::handle_append_entries_reply(int node_id, c
         voted_for = -1;
         log_storage->update_metadata(current_term, voted_for);
     } 
+
     if (role == RaftRole::Leader) {
         if (reply.success) {
             if (!arg.entries.empty()) {
@@ -555,6 +555,7 @@ void RaftNode<StateMachine, Command>::handle_append_entries_reply(int node_id, c
             }
         } else {
             DEBUG_LOG("next_idx[%d]: %d, arg.prevLogIndex: %d", node_id, next_idx[node_id], arg.prevLogIndex);
+            // If AppendEntries fails because of log inconsistency: decrement nextIndex and retry
             if (reply.followerIndex != -1) {
                 next_idx[node_id] = reply.followerIndex + 1;
             } else {
@@ -765,20 +766,18 @@ void RaftNode<StateMachine, Command>::run_background_commit() {
         std::unique_lock<std::mutex> lock(mtx);
         if (role == RaftRole::Leader) {
             for (int i = 0; i < n_nodes; i++) {
-                if (i != my_id) {
-                    if (next_idx[i] <= log.back().index) {
-                        if (next_idx[i] > log[0].index) {
-                            DEBUG_LOG("Node %d send append entries to node %d, next_idx[%d]: %d, log.back().index: %d", my_id, i, i, next_idx[i], log.back().index);
-                            AppendEntriesArgs<Command> arg(current_term, my_id, next_idx[i] - 1, log[next_idx[i] - 1 - log[0].index].term, {}, commit_idx);
-                            for (int j = next_idx[i]; j <= log.back().index; j++) {
-                                arg.entries.push_back(log[j - log[0].index]);
-                            }
-                            thread_pool->enqueue(&RaftNode::send_append_entries, this, i, arg);
-                        } else {
-                            DEBUG_LOG("Node %d send install snapshot to node %d, last_included_index: %d, last_included_term: %d", my_id, i, log[0].index, log[0].term);
-                            InstallSnapshotArgs arg(current_term, my_id, log[0].index, log[0].term, snapshot);
-                            thread_pool->enqueue(&RaftNode::send_install_snapshot, this, i, arg);
+                if (i != my_id && next_idx[i] <= log.back().index) {
+                    if (next_idx[i] > log[0].index) {
+                        DEBUG_LOG("Node %d send append entries to node %d, next_idx[%d]: %d, log.back().index: %d", my_id, i, i, next_idx[i], log.back().index);
+                        AppendEntriesArgs<Command> arg(current_term, my_id, next_idx[i] - 1, log[next_idx[i] - 1 - log[0].index].term, {}, commit_idx);
+                        for (int j = next_idx[i]; j <= log.back().index; j++) {
+                            arg.entries.push_back(log[j - log[0].index]);
                         }
+                        thread_pool->enqueue(&RaftNode::send_append_entries, this, i, arg);
+                    } else {
+                        DEBUG_LOG("Node %d send install snapshot to node %d, last_included_index: %d, last_included_term: %d", my_id, i, log[0].index, log[0].term);
+                        InstallSnapshotArgs arg(current_term, my_id, log[0].index, log[0].term, snapshot);
+                        thread_pool->enqueue(&RaftNode::send_install_snapshot, this, i, arg);
                     }
                 }
             }
@@ -829,10 +828,7 @@ void RaftNode<StateMachine, Command>::run_background_ping() {
             AppendEntriesArgs<Command> arg(current_term, my_id, 0, 0, {}, commit_idx);
             for (int i = 0; i < n_nodes; i++) {
                 if (i != my_id) {
-                    arg.prevLogIndex = next_idx[i] - 1;
-                    if (arg.prevLogIndex < log[0].index) {
-                        arg.prevLogIndex = log[0].index;
-                    } 
+                    arg.prevLogIndex = std::max(next_idx[i] - 1, log[0].index);
                     arg.prevLogTerm = log[arg.prevLogIndex - log[0].index].term;
                     thread_pool->enqueue(&RaftNode::send_append_entries, this, i, arg);
                 }

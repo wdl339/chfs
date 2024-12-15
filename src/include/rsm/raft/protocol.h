@@ -169,8 +169,7 @@ struct InstallSnapshotArgs {
 struct InstallSnapshotReply {
     int term;           // currentTerm, for leader to update itself
 
-    InstallSnapshotReply(int term)
-        : term(term) {}
+    InstallSnapshotReply(int term): term(term) {}
 
     InstallSnapshotReply() {}
 

@@ -25,7 +25,7 @@ public:
 template <typename Command>
 class RaftLog {
 
-#define META_BLOCK_ID 2
+#define METADATA_BLOCK_ID 2
 #define SNAPSHOT_BLOCK_ID 3
 #define LOG_BLOCK_BEGIN_POS 4
 #define BLOCK_SIZE KDefaultBlockCnt
@@ -34,11 +34,11 @@ public:
     RaftLog(std::shared_ptr<BlockManager> bm);
     ~RaftLog();
     
-    void update_metadata(int term, int vote);
     void recover();
+    void init_all(int c, int v, std::vector<RaftLogEntry<Command>> l, std::vector<u8> s);
     void append_log_entry(RaftLogEntry<Command> entry);
     void erase_log_entry(int begin, int end);
-    void init_all(int c, int v, std::vector<RaftLogEntry<Command>> l, std::vector<u8> s);
+    void update_metadata(int term, int vote);
     void save_snapshot(std::vector<u8> s);
 
     int has_log;
@@ -47,6 +47,7 @@ public:
     
     int current_term;
     int voted_for;
+
     std::vector<RaftLogEntry<Command>> log;
     std::vector<u8> snapshot;
 
@@ -73,13 +74,13 @@ RaftLog<Command>::~RaftLog() {}
 template <typename Command>
 void RaftLog<Command>::recover()
 {
-    
     std::unique_lock<std::mutex> lock(mtx);
     get_metadata();
     if (has_log == 0) {
         lock.unlock();
         return;
     }
+
     log.clear();
     // printf("my_id:%d, recover, n_log_entries: %d\n", my_id, n_log_entries);
     for (int i = 0; i < n_log_entries; i++) {
@@ -93,6 +94,7 @@ void RaftLog<Command>::recover()
         cmd.deserialize(cmd_data, cmd.size());
         log.push_back(RaftLogEntry<Command>(term, index, cmd));
     }
+
     std::vector<u8> snapshot_block(BLOCK_SIZE);
     bm_->read_block(SNAPSHOT_BLOCK_ID, snapshot_block.data());
     memcpy(&n_snapshot_bytes, snapshot_block.data(), sizeof(int));
@@ -119,19 +121,6 @@ void RaftLog<Command>::init_all(int c, int v, std::vector<RaftLogEntry<Command>>
     }
     lock.unlock();
     save_snapshot(s);
-}
-
-template <typename Command>
-void RaftLog<Command>::save_snapshot(std::vector<u8> s)
-{
-    std::unique_lock<std::mutex> lock(mtx);
-    snapshot = s;
-    std::vector<u8> snapshot_block(BLOCK_SIZE);
-    n_snapshot_bytes = s.size();
-    memcpy(snapshot_block.data(), &n_snapshot_bytes, sizeof(int));
-    memcpy(snapshot_block.data() + sizeof(int), s.data(), s.size());
-    bm_->write_block(SNAPSHOT_BLOCK_ID, snapshot_block.data());
-    lock.unlock();
 }
 
 template <typename Command>
@@ -193,6 +182,19 @@ void RaftLog<Command>::update_metadata(int term, int vote)
 }
 
 template <typename Command>
+void RaftLog<Command>::save_snapshot(std::vector<u8> s)
+{
+    std::unique_lock<std::mutex> lock(mtx);
+    snapshot = s;
+    std::vector<u8> snapshot_block(BLOCK_SIZE);
+    n_snapshot_bytes = s.size();
+    memcpy(snapshot_block.data(), &n_snapshot_bytes, sizeof(int));
+    memcpy(snapshot_block.data() + sizeof(int), s.data(), s.size());
+    bm_->write_block(SNAPSHOT_BLOCK_ID, snapshot_block.data());
+    lock.unlock();
+}
+
+template <typename Command>
 void RaftLog<Command>::save_metadata()
 {
     has_log = 1;
@@ -202,14 +204,14 @@ void RaftLog<Command>::save_metadata()
     memcpy(meta_block.data() + sizeof(int), &n_log_entries, sizeof(int));
     memcpy(meta_block.data() + 2 * sizeof(int), &current_term, sizeof(int));
     memcpy(meta_block.data() + 3 * sizeof(int), &voted_for, sizeof(int));
-    bm_->write_block(META_BLOCK_ID, meta_block.data());
+    bm_->write_block(METADATA_BLOCK_ID, meta_block.data());
 }
 
 template <typename Command>
 void RaftLog<Command>::get_metadata()
 {
     std::vector<u8> meta_block(BLOCK_SIZE);
-    bm_->read_block(META_BLOCK_ID, meta_block.data());
+    bm_->read_block(METADATA_BLOCK_ID, meta_block.data());
     memcpy(&has_log, meta_block.data(), sizeof(int));
     memcpy(&n_log_entries, meta_block.data() + sizeof(int), sizeof(int));
     memcpy(&current_term, meta_block.data() + 2 * sizeof(int), sizeof(int));

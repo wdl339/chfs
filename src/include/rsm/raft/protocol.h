@@ -146,18 +146,36 @@ struct AppendEntriesReply {
 };
 
 struct InstallSnapshotArgs {
-    /* Lab3: Your code here */
+    int term;                   // leader’s term
+    int leaderId;               // so follower can redirect clients
+    int lastIncludedIndex;      // the snapshot replaces all entries up through and including this index
+    int lastIncludedTerm;       // term of lastIncludedIndex
+    std::vector<u8> snapshot;   // raw bytes of the snapshot chunk
+
+    InstallSnapshotArgs(int term, int leaderId, int lastIncludedIndex, int lastIncludedTerm, std::vector<u8> snapshot)
+        : term(term), leaderId(leaderId), lastIncludedIndex(lastIncludedIndex), lastIncludedTerm(lastIncludedTerm), snapshot(snapshot) {}
+
+    InstallSnapshotArgs() {}
 
     MSGPACK_DEFINE(
-    
+        term,
+        leaderId,
+        lastIncludedIndex,
+        lastIncludedTerm,
+        snapshot
     )
 };
 
 struct InstallSnapshotReply {
-    /* Lab3: Your code here */
+    int term;           // currentTerm, for leader to update itself
+
+    InstallSnapshotReply(int term)
+        : term(term) {}
+
+    InstallSnapshotReply() {}
 
     MSGPACK_DEFINE(
-    
+        term
     )
 };
 

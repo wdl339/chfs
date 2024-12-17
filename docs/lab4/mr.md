@@ -78,7 +78,7 @@ You are free to modify the return value type of the `Coordinator::askTask(int)` 
 
 After correctly implementing Part2, you will pass `MapReduceTest.DistributedMapReduce` in `test/map_reduce/mr_test.cc`.
 
-This lab has a time limit. Please ensure that the execution time of distributed map reduce is less than three times the execution time of sequential map reduce, otherwise a certain score will be deducted.
+This lab has a time limit. Please ensure that the execution time of distributed map reduce is less than 1/3 of the execution time of sequential map reduce. Otherwise a certain score will be deducted.
 
 #### Hints
 

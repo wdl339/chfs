@@ -15,11 +15,26 @@ namespace mapReduce{
 // of key/value pairs.
 //
     std::vector<KeyVal> Map(const std::string &content) {
-        // Your code goes here
-        // Hints: split contents into an array of words.
+        // split contents into an array of words.
         std::vector<KeyVal> ret;
-        return ret;
+        std::string tmp;
 
+        for (char c : content) {
+            if (!std::isalpha(c)) {
+                if (!tmp.empty()) {
+                    ret.emplace_back(tmp, "1");
+                    tmp.clear();
+                }
+            } else {
+                tmp += c;
+            }
+        }
+
+        if (!tmp.empty()) {
+            ret.emplace_back(tmp, "1");
+        }
+
+        return ret;
     }
 
 //
@@ -28,9 +43,13 @@ namespace mapReduce{
 // any map task.
 //
     std::string Reduce(const std::string &key, const std::vector<std::string> &values) {
-        // Your code goes here
-        // Hints: return the number of occurrences of the word.
+        // return the number of occurrences of the word.
         std::string ret = "0";
+        int count = 0;
+        for (const std::string &value : values) {
+            count += std::stoi(value);
+        }
+        ret = std::to_string(count);
         return ret;
     }
 }

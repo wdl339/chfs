@@ -95,6 +95,7 @@ namespace mapReduce {
         rpc_server->run(true, 1);
 
         this->start_time = std::chrono::system_clock::now();
+        this->debug_enabled = false;
         this->n_files = files.size();
         this->current_stage = MAP_STAGE;
         for (int i = 0; i < n_files; i++) {
@@ -125,8 +126,10 @@ namespace mapReduce {
     }
 
     void Coordinator::printTime(std::string prefix) {
-        auto end_time = std::chrono::system_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-        printf("%s: %ld\n", prefix.c_str(), duration.count());
+        if (this->debug_enabled) {
+            auto end_time = std::chrono::system_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+            printf("%s: %ld\n", prefix.c_str(), duration.count());
+        }
     }
 }

@@ -22,10 +22,11 @@ namespace mapReduce {
                 continue;
             }
             auto keyVals = Map(content);
+            chfs_client->mknode(chfs::ChfsClient::FileType::REGULAR, 1, "if_" + file);
+            write_to_file(chfs_client.get(), "if_" + file, keyVals);
             kvs.insert(kvs.end(), keyVals.begin(), keyVals.end());
         }
         std::vector<KeyVal> res_kvs = sort_and_reduce(kvs);
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
         write_to_file(chfs_client.get(), outPutFile, res_kvs);
     }
 }

@@ -123,6 +123,7 @@ namespace mapReduce {
         
         stage current_stage;
         std::chrono::time_point<std::chrono::high_resolution_clock> start_time;
+        bool debug_enabled = false;
 
         void printTime(std::string prefix);
     };

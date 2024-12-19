@@ -52,4 +52,73 @@ namespace mapReduce{
         ret = std::to_string(count);
         return ret;
     }
+
+    std::string get_file_content(chfs::ChfsClient *chfs_client, const std::string &filename) {
+        std::string content = "";
+        auto res_lookup = chfs_client->lookup(1, filename);
+        if (res_lookup.is_err()) {
+            printf("file %s not found\n", filename.c_str());
+            return content;
+        }
+        auto inode_id = res_lookup.unwrap();
+        auto res_get_type = chfs_client->get_type_attr(inode_id);
+        if (res_get_type.is_err()) {
+            printf("get type attr of file %s failed\n", filename.c_str());
+            return content;
+        }
+        auto size = res_get_type.unwrap().second.size;
+        auto res_read = chfs_client->read_file(inode_id, 0, size);
+        if (res_read.is_err()) {
+            printf("read file %s failed\n", filename.c_str());
+            return content;
+        }
+        auto read_vec = res_read.unwrap();
+        content = std::string(read_vec.begin(), read_vec.end());
+        return content;
+    }
+
+    void write_to_file(chfs::ChfsClient *chfs_client, const std::string &filename, std::vector<KeyVal> res_kvs) {
+        std::string content;
+        for (const KeyVal &kv : res_kvs) {
+            content += kv.key + " " + kv.val + "\n";
+        }
+
+        std::vector<chfs::u8> data(content.begin(), content.end());
+        auto res_lookup = chfs_client->lookup(1, filename);
+        if (res_lookup.is_err()) {
+            printf("file %s not found\n", filename.c_str());
+            return;
+        }
+        auto inode_id = res_lookup.unwrap();
+        auto res_write = chfs_client->write_file(inode_id, 0, data);
+        if (res_write.is_err()) {
+            printf("write file %s failed\n", filename.c_str());
+        }
+    }
+
+    std::vector<KeyVal> sort_and_reduce(std::vector<KeyVal> &kvs) {
+        std::sort(kvs.begin(), kvs.end(), [](const KeyVal &a, const KeyVal &b) {
+            return a.key < b.key;
+        });
+
+        std::vector<std::string> values;
+        std::vector<KeyVal> res_kvs;
+
+        std::string key = kvs[0].key;
+        for (const KeyVal &kv : kvs) {
+            if (kv.key == key) {
+                values.push_back(kv.val);
+            } else {
+                std::string result = Reduce(key, values);
+                res_kvs.emplace_back(key, result);
+                key = kv.key;
+                values.clear();
+                values.push_back(kv.val);
+            }
+        }
+
+        std::string result = Reduce(key, values);
+        res_kvs.emplace_back(key, result);
+        return res_kvs;
+    }
 }

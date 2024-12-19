@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <thread>
 
 #include "map_reduce/protocol.h"
 
@@ -19,19 +20,38 @@ namespace mapReduce {
         outPutFile = config.resultFile;
         chfs_client = config.client;
         work_thread = std::make_unique<std::thread>(&Worker::doWork, this);
-        // Lab4: Your code goes here (Optional).
     }
 
     void Worker::doMap(int index, const std::string &filename) {
-        // Lab4: Your code goes here.
+        std::string content = get_file_content(chfs_client.get(), filename);
+        auto keyVals = Map(content);
+        chfs_client->mknode(chfs::ChfsClient::FileType::REGULAR, 1, my_task.outputFileName);
+        write_to_file(chfs_client.get(), my_task.outputFileName, keyVals);
+        doSubmit(MAP, index);
     }
 
     void Worker::doReduce(int index, int nfiles) {
-        // Lab4: Your code goes here.
+        std::vector<KeyVal> kvs;
+        for (int i = 0; i < nfiles; i++) {
+            std::string filename = my_task.files[i];
+            std::string content = get_file_content(chfs_client.get(), filename);
+            if (content.empty()) {
+                continue;
+            }
+            std::stringstream stringstream(content);
+            std::string key, value;
+            while (stringstream >> key >> value) {
+                kvs.emplace_back(key, value);
+            }
+        }
+        std::vector<KeyVal> res_kvs = sort_and_reduce(kvs);
+        chfs_client->mknode(chfs::ChfsClient::FileType::REGULAR, 1, my_task.outputFileName);
+        write_to_file(chfs_client.get(), my_task.outputFileName, res_kvs);
+        doSubmit(REDUCE, index);
     }
 
     void Worker::doSubmit(mr_tasktype taskType, int index) {
-        // Lab4: Your code goes here.
+        mr_client->call(SUBMIT_TASK, (int)taskType, index);
     }
 
     void Worker::stop() {
@@ -41,7 +61,23 @@ namespace mapReduce {
 
     void Worker::doWork() {
         while (!shouldStop) {
-            // Lab4: Your code goes here.
+            auto reply = mr_client->call(ASK_TASK, 0);
+            if(reply.is_err()){
+    			std::this_thread::sleep_for(std::chrono::milliseconds(30));
+                continue;
+            }
+            auto res = reply.unwrap()->as<AskReply>();
+            my_task = Task(res);
+            if (res.taskType == WAIT) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                continue;
+            } else if (res.taskType == MAP) {
+                doMap(res.index, res.files[0]);
+            } else if (res.taskType == REDUCE) {
+                doReduce(res.index, res.files.size());
+            } else if (res.taskType == NONE) {
+                break;
+            }
         }
     }
 }
